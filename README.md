@@ -120,18 +120,22 @@ $ python app.py ask '...'
 **The three tools, tested one at a time**
 
 ```
-$ python -c "from tools import search_listings; print(search_listings('graphic tee', max_price=30))"
-
+$ python -c "from tools import search_listings; print([(l['title'], l['price'], l['size']) for l in search_listings('graphic tee', max_price=30)])"
+[('Y2K Baby Tee — Butterfly Print', 18.0, 'S/M'), ('Graphic Tee — 2003 Tour Bootleg Style', 24.0, 'L'), ('Mesh Long-Sleeve Top — Black', 15.0, 'S/M'), ('Vintage Band Tee — Faded Grey', 19.0, 'L'), ('Low-Rise Cargo Pants — Khaki', 27.0, 'W29'), ('Vintage Graphic Hoodie — Faded Black', 26.0, 'L')]
 ```
 
 ```
-$ python -c "from tools import suggest_outfit; ..."
+$ python -c "from tools import suggest_outfit; from utils.data_loader import get_example_wardrobe, load_listings; print(suggest_outfit(load_listings()[0], get_example_wardrobe()))"
+**Outfit 1: Effortless Streetwear**
+Pair your Vintage Levi's 501 Jeans with the White ribbed tank top and the Vintage black denim jacket. Accessorize with the Black crossbody bag and finish the look with Chunky white sneakers.
 
+**Outfit 2: Casual Grunge**
+Combine the Vintage Levi's 501 Jeans with the Oversized grey crewneck sweatshirt and the Brown leather belt. Ground the outfit using the Black combat boots.
 ```
 
 ```
-$ python -c "from tools import create_fit_card; ..."
-
+$ python -c "from tools import create_fit_card; from utils.data_loader import load_listings; print(create_fit_card('jeans and white sneakers', load_listings()[0]))"
+Scored these vintage Levi's 501s on Depop for just $38 and I am never taking them off. They have that 90s streetwear slouch that is impossible to fake. Just keeping it simple with fresh white sneakers for the ultimate off-duty look.
 ```
 
 ---
