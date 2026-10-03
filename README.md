@@ -59,24 +59,24 @@
 
 ### `search_listings`
 
-- **What it does:**
-- **Inputs:** <!-- name and type each: `max_price` (float), not "a price" -->
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Filters listings by price and size, then ranks them by keyword overlap with the description.
+- **Inputs:** `description` (str), `size` (str | None), `max_price` (float | None)
+- **Returns:** A list of up to 10 listing dicts, best match first, each with `id`, `title`, `description`, `category`, `style_tags`, `size`, `condition`, `price`, `colors`, `brand`, `platform`. A size matches when it equals a whole token of the listing's size, ignoring case (`"M"` matches `"S/M"`, not `"XL"`).
+- **When it has nothing:** An empty list `[]`.
 
 ### `suggest_outfit`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for one or two outfits pairing the new item with pieces from the user's wardrobe.
+- **Inputs:** `new_item` (dict), `wardrobe` (dict with an `items` list)
+- **Returns:** A non-empty string of outfit suggestions naming specific wardrobe pieces.
+- **When it has nothing:** If the wardrobe is empty, a string of general styling advice for the item.
 
 ### `create_fit_card`
 
-- **What it does:**
-- **Inputs:**
-- **Returns:**
-- **When it has nothing:**
+- **What it does:** Asks the model for a short, post-style caption about the find.
+- **Inputs:** `outfit` (str), `new_item` (dict)
+- **Returns:** A 2–4 sentence caption string that mentions the item's title, price, and platform once each.
+- **When it has nothing:** If `outfit` is empty, the string `"Can't write a fit card without an outfit suggestion."`
 
 ---
 
@@ -93,7 +93,7 @@
      The grader checks your code against what you claim here, so the file and
      function have to be real. -->
 
-**Branch rule:**
+**Branch rule:** If `search_listings` returns an empty list, put a message in `session["error"]` telling the user what to loosen (price, size, or keywords) and stop. Otherwise, take the first result as `session["selected_item"]` and go to `suggest_outfit`.
 
 **Where it lives:** `agent.py::run_agent`
 
