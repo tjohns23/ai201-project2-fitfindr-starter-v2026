@@ -25,9 +25,10 @@ Given a query that matches at least one listing, the agent completes all three
 tool calls and returns a fit card — in at least 4 of 5 tries.
 
 **Why this target:**
-<!-- Why 4 of 5 and not 5 of 5? Something about your search, probably —
-     "my search is a plain keyword match and some phrasings will miss" is a
-     real answer. -->
+My search is a plain keyword match, so a phrasing that uses a word not in any
+title, description, or tag (e.g. "shirt" for a listing that says "tee") scores
+zero and stops the run. Two of the three tools also depend on a model call that
+can fail.
 
 ---
 
@@ -37,66 +38,49 @@ Given a query that matches no listings, the agent stops before calling
 `suggest_outfit` and returns a message naming what to change — 5 of 5 tries.
 
 **Why this target:**
-<!-- Why is 5 of 5 reasonable here when criterion 1 isn't? What's different
-     about this path? -->
+This path never touches the model. It's a plain empty-list check in my own
+code, so it should behave identically every time. There's no randomness to
+excuse a miss.
 
 ---
 
-## 3. Something about state
+## 3. The item search picked is the item every later tool received
 
-<!-- YOU WRITE THIS ONE.
-
-     How would you know that the item your search found is the same item the
-     next tool received? Name something countable or observable.
-
-     This is the criterion people find hardest, because state failure doesn't
-     look like state failure — it looks like a tool problem. Something that
-     compares session["selected_item"] against what actually reached
-     suggest_outfit is the shape you're after. -->
-
-
+For a matching query, `session["selected_item"]["id"]` equals
+`session["search_results"][0]["id"]`, and the fit card names that item's exact
+price — in 5 of 5 tries.
 
 **Why this target:**
-
-
+Passing the item from search to the next tools is my own code reading and
+writing the session, not the model, so it should never drift. The price check
+uses the model's output, but the exact price is in the prompt, so I expect
+it to be copied correctly every time.
 
 ---
 
-## 4. Something about the fit card
+## 4. The fit card reads like a caption, not a product listing
 
-<!-- YOU WRITE THIS ONE.
-
-     The fit card calls a model, so the same input can produce different words
-     each time. That's not a bug — it's the nature of the tool. So what would
-     make it acceptable?
-
-     Think about what you'd actually be unhappy to see. A caption that never
-     mentions the price? Two different items producing the same opening
-     sentence? A card longer than a caption anyone would post? Any of those can
-     be turned into a number. -->
-
-
+For a matching query, the fit card is 2–4 sentences, mentions the item's price
+and platform, and never contains the word "None" — in at least 4 of 5 tries.
 
 **Why this target:**
-
-
+The card comes from the model at temperature 0.9, so wording and length vary
+from run to run. One overlong card or a dropped platform in five is plausible;
+two would mean my prompt isn't constraining it enough.
 
 ---
 
-## 5. Your choice
+## 5. Search respects the price ceiling and size
 
-<!-- YOU WRITE THIS ONE TOO.
-
-     Pick something you actually care about getting right. Speed, the empty
-     wardrobe path, what happens when the model can't be reached, whether the
-     search respects a price ceiling — anything, as long as it names a number
-     or an observable outcome. -->
-
-
+For the query "graphic tee under $30, size M", every item in
+`session["search_results"]` has `price <= 30` and a size that matches M by my
+token rule (e.g. "M" or "S/M", never "XL" or "US 9") — in 5 of 5 tries.
 
 **Why this target:**
-
-
+Price and size filtering are deterministic code with a rule written in my Tool
+Inventory. The data has sizes like "XL" and "US 9" that a naive substring check
+would wrongly match, so this criterion tests that rule directly. No model is
+involved, so there's no reason to allow a miss.
 
 ---
 
