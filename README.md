@@ -41,6 +41,7 @@
 
 <!-- Three or four sentences: what a user asks for, and what they get back. -->
 
+FitFindr takes a plain-language request for a secondhand piece, like "vintage graphic tee under $30, size M", and searches resale listings from Depop, Poshmark, and thredUp for the best match within that price and size. It then pairs the top find with pieces already in the user's wardrobe and suggests one or two complete outfits. Last, it writes a short, post-ready caption (a "fit card") naming the item, its price, and where it was found. If nothing matches, it stops and tells the user whether to loosen the price, the size, or the keywords.
 
 
 ---
@@ -97,9 +98,9 @@
 
 **Where it lives:** `agent.py::run_agent`
 
-**How the query is parsed:** <!-- regex, string splitting, or asking the model — say which -->
+**How the query is parsed:** Regex (`agent.py::parse_query`). "under $30" / "$30" becomes `max_price`, "size M" becomes `size`, and the rest of the text is the `description`.
 
-**What moves through the session:** <!-- which fields, in what order -->
+**What moves through the session:** `query` → `parsed` → `search_results` → `selected_item` → `outfit_suggestion` → `fit_card`. On an empty search, `error` is set and the later fields stay `None`.
 
 ---
 
@@ -113,7 +114,16 @@
 **One full query**
 
 ```
-$ python app.py ask '...'
+$ python app.py ask 'vintage graphic tee under $30'
+  Found:    Y2K Baby Tee — Butterfly Print — $18.0 on depop
+
+  Outfit:   **Outfit 1: Casual Y2K Streetwear**
+Pair the butterfly baby tee with Baggy straight-leg jeans and Chunky white sneakers. Layer the Black cropped zip hoodie over your shoulders or wear it open, and accessorize with the Black crossbody bag for an effortless, nostalgic look.
+
+**Outfit 2: Soft Contrast**
+Tuck the baby tee into the Wide-leg khaki trousers, cinched with the Brown leather belt. Throw on the Vintage black denim jacket and finish with Chunky white sneakers for a balanced mix of vintage edge and sweet Y2K charm.
+
+  Fit card: Obsessed with this butterfly Y2K baby tee I just scored on Depop for only $18! It's giving total early 2000s nostalgia, and I'm styling it two ways—either super casual with baggy denim or mixed with khakis for a sweet, retro vibe. Which look is your favorite?
 
 ```
 
@@ -151,9 +161,9 @@ Scored these vintage Levi's 501s on Depop for just $38 and I am never taking the
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* A step-by-step plan for building the three tools in `tools.py`, one at a time, with a terminal test for each before moving on to the next.
+- *What came back:* A plan for each tool. `search_listings` would filter by `max_price` and by whole-token size ("M" matches "S/M" but not "XL" or "US 9"), drop filler words so every listing doesn't score at least 1, score keyword overlap, and return `[]` when nothing is left. `suggest_outfit` would leave out a `None` brand and switch to general styling advice when the wardrobe is empty. `create_fit_card` would return a fixed message for an empty outfit without calling the model. It also gave tests for each tool, like `search_listings('ballgown', max_price=5)` should return `[]`.
+- *What I changed:* Nothing. I followed the plan as written and tested each tool from the terminal before starting the next one.
 
 **Moment 2**
 
