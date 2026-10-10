@@ -118,35 +118,78 @@ def run_agent(query: str, wardrobe: dict) -> dict:
 
         if next_step == "parse":
             session["parsed"] = parse_query(session["query"])
+            trace.step("parse_query", inputs=session["query"],
+                       returned=_kv(session["parsed"]), note="regex")
             next_step = "search"
 
         elif next_step == "search":
             p = session["parsed"]
-            session["search_results"] = call_tool("search_listings", {
+            args = {
                 "description": p["description"],
                 "size": p["size"],
                 "max_price": p["max_price"],
-            })
+            }
+            session["search_results"] = call_tool("search_listings", args)
             if not session["search_results"]:
                 session["error"] = _no_results_message(p)
                 next_step = "done"
+                note = "branch: empty, stopping before suggest_outfit"
             else:
                 session["selected_item"] = session["search_results"][0]
                 next_step = "suggest"
+                note = f"branch: picked {session['selected_item']['title']}"
+            trace.step("search_listings (via MCP)", inputs=_kv(args),
+                       returned=session["search_results"], note=note)
 
         elif next_step == "suggest":
-            session["outfit_suggestion"] = suggest_outfit(
-                session["selected_item"], session["wardrobe"]
-            )
+            wardrobe_size = len(session["wardrobe"].get("items", []))
+            try:
+                session["outfit_suggestion"] = suggest_outfit(
+                    session["selected_item"], session["wardrobe"]
+                )
+            except ModelUnavailable as exc:
+                _model_failed(session, "suggest_outfit", exc)
+                next_step = "done"
+                continue
+            trace.step("suggest_outfit",
+                       inputs=_kv({"new_item": session["selected_item"]["title"],
+                                   "wardrobe_items": wardrobe_size}),
+                       returned=session["outfit_suggestion"])
             next_step = "fit_card"
 
         elif next_step == "fit_card":
-            session["fit_card"] = create_fit_card(
-                session["outfit_suggestion"], session["selected_item"]
-            )
+            try:
+                session["fit_card"] = create_fit_card(
+                    session["outfit_suggestion"], session["selected_item"]
+                )
+            except ModelUnavailable as exc:
+                _model_failed(session, "create_fit_card", exc)
+                next_step = "done"
+                continue
+            trace.step("create_fit_card",
+                       inputs=_kv({"item": session["selected_item"]["title"],
+                                   "outfit": session["outfit_suggestion"]}),
+                       returned=session["fit_card"])
             next_step = "done"
 
     return session
+
+
+def _kv(d: dict) -> str:
+    """Show a dict's values in the trace, which otherwise prints only its keys."""
+    return ", ".join(f"{k}={v!r}" for k, v in d.items())
+
+
+def _model_failed(session: dict, tool: str, exc: ModelUnavailable) -> None:
+    """Stop the run with a message the user can act on, instead of a stack trace."""
+    item = session["selected_item"]
+    session["error"] = (
+        f"Found {item['title']} (${item['price']} on {item['platform']}), "
+        f"but couldn't reach the model to run {tool}: {exc} "
+        f"Your search worked; try again once the model is reachable."
+    )
+    trace.step(tool, returned=f"ModelUnavailable: {exc}",
+               note="branch: model unreachable, stopping")
 
 
 # ── query parsing (regex) ─────────────────────────────────────────────────────

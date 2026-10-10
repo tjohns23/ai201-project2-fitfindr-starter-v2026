@@ -189,20 +189,101 @@ Scored these vintage Levi's 501s on Depop for just $38 and I am never taking the
      `python run_eval.py --label before` runs everything and writes the table
      into results/. Paste it here and fill in the verdicts. -->
 
+Produced by `python run_eval.py --label before` (`run_eval.py::main`), caching
+off, temperature 0.9. Full output: `results/run_2026-10-10_1914_before.md`.
+
 | Criterion | Target | Try 1 | Try 2 | Try 3 | Try 4 | Try 5 | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1.  |  |  |  |  |  |  |  |
-| 2.  |  |  |  |  |  |  |  |
-| 3.  |  |  |  |  |  |  |  |
-| 4.  |  |  |  |  |  |  |  |
-| 5.  |  |  |  |  |  |  |  |
+| 1. A matching query completes all three tools | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 2. An impossible query stops before the second tool | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 3. The item search picked is the item every later tool received | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 4. The fit card reads like a caption, not a product listing | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 5. Search respects the price ceiling and size | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+
+Scenarios (`scenarios.py`): C1 `'vintage graphic tee under $30'`, C2
+`'designer ballgown size XXS under $5'`, C3 `'90s track jacket in size M'`,
+C4 `'denim jacket under $50'`, C5 `'graphic tee under $30, size M'`, all with
+the example wardrobe. A sixth, diagnostic scenario (empty wardrobe) also
+completed 5 of 5 but isn't one of the five criteria.
 
 **Real output from one try**, pasted as text, naming the file and function
 that produced it:
 
-```
+**Criterion 1, Try 1** — `agent.py::run_agent`; trace from `trace.py::step`,
+fit card from `tools.py::create_fit_card`
 
 ```
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: description='vintage graphic tee', size=None, max_price=30.0
+[2] search_listings (via MCP)
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    branch: picked Y2K Baby Tee — Butterfly Print
+[3] suggest_outfit
+[4] create_fit_card
+
+Fit card: Obsessed with this little butterfly tee I just scored on Depop for only $18! It’s giving total Y2K princess, but I’ve been loving styling it with baggy jeans for that casual street vibe or toughening it up with combat boots. Such a good vintage find.
+```
+
+**Criterion 2, Try 1** — `agent.py::run_agent`, message from
+`agent.py::_no_results_message`
+
+```
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: description='designer ballgown', size='XXS', max_price=5.0
+      →    regex
+[2] search_listings (via MCP)
+      in:  description='designer ballgown', size='XXS', max_price=5.0
+      out: [] (empty)
+      →    branch: empty, stopping before suggest_outfit
+
+stopped early: yes — Nothing matched your search. You could raise your max price above $5, or drop the size XXS filter, or try broader keywords than "designer ballgown".
+```
+
+The trace ends at step 2, so `suggest_outfit` and `create_fit_card` were never called.
+
+**Criterion 3, Try 1** — `agent.py::run_agent` (session), fit card from
+`tools.py::create_fit_card`
+
+```
+[2] search_listings (via MCP)
+      in:  description='90s track jacket', size='M', max_price=None
+      →    branch: picked 90s Track Jacket — Navy/White Stripe
+[3] suggest_outfit
+      in:  new_item='90s Track Jacket — Navy/White Stripe', wardrobe_items=10
+[4] create_fit_card
+      in:  item='90s Track Jacket — Navy/White Stripe', …
+
+selected_item: 90s Track Jacket — Navy/White Stripe ($45.0, poshmark)
+Fit card: Score this 90s Champion track jacket for just $45 on Poshmark and I am obsessed. It has that ultimate vintage athletic energy whether I'm dressing it down with baggy denim or mixing it with prepier trousers. Such a good find!
+```
+
+The first search result, the item passed to `suggest_outfit`, and the item passed to `create_fit_card` are the same listing, and the card states its exact price, $45.
+
+**Criterion 4, Try 5** — `tools.py::create_fit_card`
+
+```
+selected_item: Denim Jacket — Light Wash, Cropped ($42.0, poshmark)
+Fit card: Score this cropped vintage Wrangler denim jacket on Poshmark for just $42! Obsessed with the light wash, so I styled it two ways for that perfect 90s streetwear vibe. Which look is your favorite?
+```
+
+3 sentences, price ($42), platform (Poshmark), and no "None".
+
+**Criterion 5, Try 1** — `tools.py::search_listings`, called through
+`mcp_server.py::search_listings`
+
+```
+[2] search_listings (via MCP)
+      in:  description='graphic tee', size='M', max_price=30.0
+      out: 2 items: Y2K Baby Tee — Butterfly Print, Mesh Long-Sleeve Top — Black
+      →    branch: picked Y2K Baby Tee — Butterfly Print
+```
+
+Y2K Baby Tee is $18, size `S/M`, and Mesh Long-Sleeve Top is $15, size `S/M`. Both are ≤ $30 and match M.
+The data's other tees, Graphic Tee — 2003 Tour Bootleg Style ($24) and Vintage
+Band Tee ($19), are size `L` and were correctly excluded. All 5 tries returned
+the same two items.
 
 ---
 
@@ -250,23 +331,67 @@ that produced it:
      the same length, your branch isn't working — and this is the fastest way
      anyone will ever find that out. -->
 
-**Happy path**
+**Happy path** — `python app.py ask 'vintage graphic tee under $30' --trace`
 
 ```
-
+[1] parse_query
+      in:  vintage graphic tee under $30
+      out: description='vintage graphic tee', size=None, max_price=30.0
+      →    regex
+[2] search_listings (via MCP)
+      in:  description='vintage graphic tee', size=None, max_price=30.0
+      out: 10 items: Y2K Baby Tee — Butterfly Print, Graphic Tee — 2003 Tour Bootleg Style, Vintage Band Tee — Faded Grey … +7 more
+      →    branch: picked Y2K Baby Tee — Butterfly Print
+[3] suggest_outfit
+      in:  new_item='Y2K Baby Tee — Butterfly Print', wardrobe_items=10
+      out: **Outfit 1: Casual Y2K Streetwear** Pair the butterfly baby tee with Baggy straight-leg jeans and Chunky white…
+[4] create_fit_card
+      in:  item='Y2K Baby Tee — Butterfly Print', outfit='**Outfit 1: Casual Y2K Streetwear**
+Pair the butterfly baby te…
+      out: Obsessed with this butterfly Y2K baby tee I just scored on Depop for only $18! It’s giving total early 2000s n…
 ```
 
-**Empty search**
+**Empty search** — `python app.py ask 'designer ballgown size XXS under $5' --trace`
 
 ```
+[1] parse_query
+      in:  designer ballgown size XXS under $5
+      out: description='designer ballgown', size='XXS', max_price=5.0
+      →    regex
+[2] search_listings (via MCP)
+      in:  description='designer ballgown', size='XXS', max_price=5.0
+      out: [] (empty)
+      →    branch: empty, stopping before suggest_outfit
 
+  Nothing matched your search. You could raise your max price above $5, or drop the size XXS filter, or try broader keywords than "designer ballgown".
 ```
 
-**On the MCP move:** <!-- what changed in your code, and whether anything
-behaved differently afterwards. If the rewire didn't work, say exactly where it
-broke — the error text and the last thing that worked. That earns the point in
-full. -->
+The empty run stops after two steps; the happy path runs four.
 
+**On the MCP move:** `search_listings` is registered in `mcp_server.py` with
+FastMCP, and `agent.py::run_agent` now calls it through
+`mcp_client.call_tool("search_listings", {...})` instead of importing it from
+`tools.py`. The registered input types (`description: str`,
+`size: str | None`, `max_price: float | None`) already matched the Tool
+Inventory. Nothing behaved differently: I ran the direct call and the MCP call
+side by side on three queries (10 results, 4 results with a size filter, and an
+empty search) and the lists were identical. That's because the tool already
+returned plain JSON-safe values (strings, floats, lists, `None`). Writing the
+description did surface two size rules I had never stated: "One Size" listings
+match any size, and only a single size token matches (`"9"` works, `"US 9"`
+doesn't).
+
+### Failure Modes
+
+| Failure | How I triggered it | What the agent said | Handled before? |
+|---|---|---|---|
+| Empty search | `python app.py ask 'sequined astronaut suit size XXS under $3'` | "Nothing matched your search. You could raise your max price above $3, or drop the size XXS filter, or try broader keywords than "sequined astronaut suit"." | Yes — the search branch stops before `suggest_outfit`. |
+| Empty wardrobe | `python app.py ask 'denim jacket under $50' --empty-wardrobe` | Two general outfits for the Wrangler cropped denim jacket (cargo pants + ribbed tank; slip dress + ankle boots), then a fit card. No crash, no empty string. | Yes — `suggest_outfit` switches to general advice when `wardrobe["items"]` is empty. |
+| Model unavailable | Broken `GEMINI_API_KEY`, new query `'black leather boots under $60'`, cache off | Before: `ModelUnavailable: The model rejected your API key…` printed by `app.py`'s catch-all, and the run died with exit code 1. After: "Found Platform Mary Janes — Black Patent ($55.0 on depop), but couldn't reach the model to run suggest_outfit: The model rejected your API key. Check GEMINI_API_KEY in your .env file, or create a fresh key at aistudio.google.com. Your search worked; try again once the model is reachable." | No — added a `ModelUnavailable` handler in `agent.py::run_agent` around `suggest_outfit` and `create_fit_card`. It puts the message in `session["error"]` and ends the loop, so `serve.py` and `run_eval.py` get a session back instead of an exception. |
+
+While I was testing the empty wardrobe, the real service also returned
+`503 UNAVAILABLE` partway through a run. That raised the same
+`ModelUnavailable`, so the handler covers an outage as well as a bad key.
 
 
 ---
