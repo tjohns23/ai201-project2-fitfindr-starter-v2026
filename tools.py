@@ -97,7 +97,7 @@ def search_listings(
             " ".join(listing["style_tags"]),
         ]).lower()
         tokens = set(re.findall(r"[a-z0-9]+", text))
-        score = sum(1 for w in words if w in tokens)
+        score = sum(1 for w in words if _SYNONYMS.get(w, {w}) & tokens)
         if score > 0:
             scored.append((score, listing))
 
@@ -110,6 +110,21 @@ _STOPWORDS = {
     "under", "over", "size", "looking", "want", "need", "some", "something",
     "i", "im", "me", "my",
 }
+
+
+# Words people type that the listings don't use. A query word scores if the
+# listing contains it OR any word in its group — still one point per query
+# word, so a synonym can't count twice. Unit 4: "trainers", "purse" and
+# "slacks" found nothing, because no listing says them.
+_SYNONYM_GROUPS = [
+    {"tee", "tees", "shirt", "shirts", "tshirt"},
+    {"sneakers", "sneaker", "trainers", "trainer", "kicks"},
+    {"bag", "purse", "handbag"},
+    {"trousers", "pants", "slacks"},
+    {"denim", "jean", "jeans"},
+    {"sweatshirt", "jumper", "crewneck"},
+]
+_SYNONYMS = {word: group for group in _SYNONYM_GROUPS for word in group}
 
 
 def _size_matches(wanted: str, listing_size: str) -> bool:
