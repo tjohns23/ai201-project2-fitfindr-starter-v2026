@@ -465,6 +465,15 @@ description did surface two size rules I had never stated: "One Size" listings
 match any size, and only a single size token matches (`"9"` works, `"US 9"`
 doesn't).
 
+After the improvement, the synonym change in `tools.py` reached the MCP tool
+with no edit to `mcp_server.py`: the server imports the real function, and
+`call_tool` starts a fresh server on every call. Direct and MCP results still
+matched (`purse`, `graphic tee size M`). What *didn't* update itself was the
+published description, which still said "keywords" with no mention of
+synonyms. A caller reading only the description would have been wrong about
+what matches, so I added one clause to it. Code changes reach the server on
+their own; the description has to be updated by hand.
+
 ### Failure Modes
 
 | Failure | How I triggered it | What the agent said | Handled before? |
@@ -593,6 +602,50 @@ It is not a clean win, though, and three caveats matter:
 <!-- For each criterion still missed: what you'd do, and why you stopped where
      you did. "I ran out of time" is fine if it's true. Pretending nothing is
      left is not. -->
+
+**No criterion is still missed.** All five, with criterion 1 revised, are MET (5/5) in
+`results/run_2026-10-10_2117_after.md`. That doesn't mean the agent is right.
+These are the problems I know about that my criteria don't catch:
+
+**1. The synonym fix only covers the words I tested.** `_SYNONYM_GROUPS` holds
+exactly what my five phrasings needed. "runners" for sneakers and "tote" for
+bag still return `[]` after the change. *What I'd do:* rerun criterion 1 with
+five new phrasings chosen without looking at the map; if they miss, replace
+the hand-written map with a model call that rewrites the query into words the
+listings actually use. *Why I stopped:* the unit allows one measured change,
+and growing the map until a test passes would be tuning to the test.
+
+**2. Ties are still broken by data-file order.** `band shirt` scores 2 on both
+the Graphic Tee (2003 Tour) and the Vintage Band Tee, and the Graphic Tee wins
+only because it comes first in `listings.json`. *What I'd do:* add a
+tie-breaker that weights title matches above description matches, and add a
+criterion that checks the top result is the named item, not just that the run
+completes. *Why I stopped:* this was a second change, and making it in the
+same run would have hidden which one caused the improvement.
+
+**3. Search got less precise.** Treating "shirt" as "tee" adds the Vintage Polo
+Shirt to `graphic tee under $30, size M`, and earlier `'black leather boots'`
+picked Platform Mary Janes. Criterion 5 checks only price and size, so it
+passes either way. *What I'd do:* add a criterion on result relevance, e.g. the
+top result's `category` matches the item type asked for, in 5 of 5. *Why I
+stopped:* none of my five criteria measured it, so I had no before number to
+improve against.
+
+**4. Criterion 4 still mostly checks that the model follows my prompt.** It
+asks for the same three things `create_fit_card`'s prompt demands, so 5/5 is
+close to guaranteed. *What I'd do:* run it on five different items, including
+ones with `brand: None`, and require the card to name a wardrobe piece from
+the outfit. *Why I stopped:* I named it as the criterion to tighten but chose
+to revise criterion 1, because criterion 1 was measuring the wrong thing and
+criterion 4 is only measuring too little.
+
+**5. The empty-search message can point at the wrong fix.** Before the
+change, `trainers size 8` told the user to "drop the size 8 filter", which
+wouldn't have helped because the word was the problem. Words outside the
+synonym map still get that advice. *What I'd do:* when a search is empty,
+re-run it without the filters, and only suggest loosening a filter if that
+second search finds something. *Why I stopped:* the branch passed its own
+criterion, and I kept this unit's changes to the one in `tools.py`.
 
 
 

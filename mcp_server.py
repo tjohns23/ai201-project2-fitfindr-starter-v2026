@@ -75,7 +75,8 @@ def search_listings(
 ) -> list[dict]:
     """
     Search secondhand clothing listings by keywords (description, e.g. "vintage
-    graphic tee"), optionally filtered by size (a single size token such as
+    graphic tee"; a few common synonyms also match, e.g. "trainers" finds
+    sneakers and "purse" finds bags), optionally filtered by size (a single size token such as
     "M" or "9", matched case-insensitively against whole tokens of the
     listing's size, so "M" matches "S/M" but not "XL"; "One Size" listings
     always match) and max_price (inclusive, in US dollars).
