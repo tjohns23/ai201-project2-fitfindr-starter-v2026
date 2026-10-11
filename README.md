@@ -199,6 +199,24 @@ off, temperature 0.9. Full output: `results/run_2026-10-10_1914_before.md`.
 | 3. The item search picked is the item every later tool received | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 | 4. The fit card reads like a caption, not a product listing | 4 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
 | 5. Search respects the price ceiling and size | 5 of 5 | PASS | PASS | PASS | PASS | PASS | MET (5/5) |
+| 1 (revised). Everyday phrasings complete all three tools | 4 of 5 phrasings | PASS | PASS | FAIL | FAIL | FAIL | MISSED (2/5) |
+
+**Criterion 1 was revised in unit 4** (see `criteria.md`): the original row is
+kept above, and the revised one is underneath. For the revised row each Try
+column is one phrasing, run 5 times: Try 1 `band shirt under $25`, Try 2
+`jean jacket under $50`, Try 3 `trainers size 8`, Try 4 `purse under $40`,
+Try 5 `slacks size M`. Search is deterministic, so each phrasing gave the
+same result on all 5 runs. Output: `results/run_2026-10-10_2101_before_criterion1_revised.md`.
+
+```
+[2] search_listings (via MCP)
+      in:  description='trainers', size='8', max_price=None
+      out: [] (empty)
+      →    branch: empty, stopping before suggest_outfit
+
+stopped early: yes — Nothing matched your search. You could drop the size 8 filter, or try broader keywords than "trainers".
+```
+— `agent.py::run_agent`, search by `tools.py::search_listings` via MCP. Platform Sneakers (US 8) is in the data.
 
 Scenarios (`scenarios.py`): C1 `'vintage graphic tee under $30'`, C2
 `'designer ballgown size XXS under $5'`, C3 `'90s track jacket in size M'`,
@@ -307,13 +325,79 @@ the same two items.
 
 | # | Criterion | Target | Verdict | How I decided |
 |---|---|---|---|---|
-| 1 |  |  |  |  |
-| 2 |  |  |  |  |
-| 3 |  |  |  |  |
-| 4 |  |  |  |  |
-| 5 |  |  |  |  |
+| 1 | A matching query completes all three tools | 4 of 5 | MET (5/5) | Every try had `session["error"] is None` and a non-empty `fit_card`; each trace shows all four steps. |
+| 2 | An impossible query stops before the second tool | 5 of 5 | MET (5/5) | Every trace ends at `[2] search_listings (via MCP)` with `[] (empty)`; `suggest_outfit` never appears as a step, and the message names price, size, and keywords. |
+| 3 | The item search picked is the item every later tool received | 5 of 5 | MET (5/5) | In each trace the first search result, the `new_item` passed to `suggest_outfit`, and the `item` passed to `create_fit_card` are the same listing, and every card contains "$45" exactly. |
+| 4 | The fit card reads like a caption, not a product listing | 4 of 5 | MET (5/5) | Every card was 3 sentences, named "$42" and "Poshmark", and never contained "None". |
+| 5 | Search respects the price ceiling and size | 5 of 5 | MET (5/5) | All 5 tries returned the same 2 items, both `S/M` and ≤ $30, checked against `data/listings.json`. The two size-`L` tees were correctly excluded. |
+| 1 (revised) | Everyday phrasings complete all three tools | 4 of 5 phrasings | **MISSED (2/5)** | `trainers`, `purse` and `slacks` returned `[]` on all 5 runs and stopped at step 2. `band shirt` and `jean jacket` completed, which counts as a pass, but both picked the wrong item (see diagnosis). |
 
 **Diagnoses**
+
+**Original criteria: nothing missed.** All five passed 5 of 5, which says as much
+about the targets as about the agent (see the pattern below).
+
+**Revised criterion 1: MISSED, 2 of 5 phrasings. Place: the tool,
+`tools.py::search_listings`.** Mechanism: the score is the number of query words
+that appear *literally* among a listing's title, description, category, and tag
+tokens. There is no notion of synonyms. "trainers", "purse", and "slacks" don't
+appear anywhere in `data/listings.json`, even though Platform Sneakers (US 8),
+the Mini Shoulder Bag ($38), and the Wide-Leg Linen Trousers (M/L) all fit those
+filters. Every listing scored 0, was dropped, and the loop's branch correctly
+stopped on `[]`. The branch and the session did what they should; the tool
+returned empty when it shouldn't have.
+
+The same mechanism explains the two "passes". Each listing's score is a count
+of distinct matching words, so most items tie at 1, and `scored.sort` is stable,
+so **ties are broken by order in the data file**. `band shirt` matched both "band"
+(Vintage Band Tee, `lst_033`) and "shirt" (Oversized Flannel Shirt, `lst_003`) at
+score 1, and the flannel came first. `jean jacket` matched only "jacket", so 90s
+Track Jacket (`lst_004`) beat Denim Jacket (`lst_007`). These completed, so they
+pass as written, but neither user got what they asked for. This is the same
+fault as `'black leather boots'` → Mary Janes below: one problem in one tool,
+not three.
+
+**A knock-on effect in the branch's message:** `_no_results_message` suggests
+loosening whatever filters were set ("drop the size 8 filter", "raise your max
+price above $40"). Here those filters weren't the cause; the word was. So the
+message points the user at the wrong fix.
+
+**The pattern: my criteria test what can't fail.** Criteria 2, 3 (the ID half),
+and 5 check deterministic code in `agent.py::run_agent` and
+`tools.py::search_listings`. They have no randomness, so they can only fail if the
+code is broken, and 5 of 5 was guaranteed once the code was right. That's a
+reasonable regression check, but it isn't a measurement. The two criteria that
+touch the model passed easily for reasons I can name:
+
+- **Criterion 4 restates my own prompt.** `tools.py::create_fit_card` tells the
+  model to "Write a 2-4 sentence caption … Mention the price and the platform
+  once each". The criterion checks the same three things, so it measures whether
+  Gemini follows a direct instruction, which it did 25 of 25 times. It doesn't
+  check whether the card reads like a caption rather than a product listing. One
+  card (criterion 5's scenario, Try 3) was written in all lowercase with emoji
+  run-ons; it would still pass the sentence check, and nothing in the criterion
+  could flag it.
+- **Criterion 1 can't see the failure its own reason names.** The "why" says the
+  likely miss is a phrasing like "shirt" for a listing that says "tee", which
+  scores zero in `search_listings`. But the criterion only counts queries that
+  *already* match a listing, so that failure is outside what it tests. The only
+  miss it can still catch is a model outage.
+
+**Were my targets low? Yes.** The 4-of-5 targets on criteria 1 and 4 allowed a
+miss in exactly the places that turned out to be the most reliable. Every test
+also used one fixed query per criterion, so five tries of the same input mostly
+re-tested the same path.
+
+**The criterion I'd tighten: 4.** Run it on five *different* items, including
+ones with `brand: None`, and require 5 of 5. Add a check the prompt doesn't
+hand to the model, such as the card naming at least one wardrobe piece from
+the outfit. That would test whether the card reflects the styling rather than
+just the listing.
+
+**Seen but not measured:** `'black leather boots under $60'` picked Platform
+Mary Janes as the best match. Keyword overlap in `tools.py::search_listings`
+ranks on any shared word ("black", "leather"), not on the item type. None of
+the five criteria checks whether the top result is the kind of item asked for.
 
 
 

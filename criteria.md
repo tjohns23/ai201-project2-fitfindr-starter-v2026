@@ -30,6 +30,20 @@ title, description, or tag (e.g. "shirt" for a listing that says "tee") scores
 zero and stops the run. Two of the three tools also depend on a model call that
 can fail.
 
+> **Revised in unit 4:** For 5 different everyday phrasings of items the data
+> contains — `band shirt under $25`, `jean jacket under $50`,
+> `trainers size 8`, `purse under $40`, `slacks size M` — the agent completes
+> all three tools and returns a fit card for at least 4 of the 5 phrasings.
+> A phrasing counts only if it completes on all 5 of its runs.
+>
+> **Why revised:** the original only counted queries that already match a
+> listing, so it couldn't observe the failure its own reason predicted: a
+> user's word ("shirt", "trainers", "purse") that doesn't appear in the
+> listing that should match. It passed 5 of 5 in unit 4 without testing that
+> at all. Each phrasing above names an item that really is in
+> `data/listings.json`, using a word the listing itself doesn't use, chosen
+> before running any of them through search.
+
 ---
 
 ## 2. An impossible query stops before the second tool

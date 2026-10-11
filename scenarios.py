@@ -15,12 +15,25 @@ own criteria need — these are a starting point, not a fixed set.
 
 SCENARIOS = [
     {
-        # A query the data can match. Criterion 1.
-        "name": "matching query completes",
+        # The ORIGINAL criterion 1 query. Kept as a diagnostic so the before
+        # and after logs still line up; the revised criterion 1 is below.
+        "name": "matching query completes (original criterion 1)",
         "query": "vintage graphic tee under $30",
         "wardrobe": "example",
-        "criterion": 1,
+        "criterion": None,
     },
+    # Revised criterion 1 — everyday words the listings don't use. Each one
+    # names an item that IS in the data. Try column = phrasing in the README.
+    {"name": "1a. band shirt -> Vintage Band Tee", "query": "band shirt under $25",
+     "wardrobe": "example", "criterion": 1},
+    {"name": "1b. jean jacket -> Denim Jacket", "query": "jean jacket under $50",
+     "wardrobe": "example", "criterion": 1},
+    {"name": "1c. trainers -> Platform Sneakers", "query": "trainers size 8",
+     "wardrobe": "example", "criterion": 1},
+    {"name": "1d. purse -> Mini Shoulder Bag", "query": "purse under $40",
+     "wardrobe": "example", "criterion": 1},
+    {"name": "1e. slacks -> Linen Trousers", "query": "slacks size M",
+     "wardrobe": "example", "criterion": 1},
     {
         # A query nothing can match. Criterion 2 — the branch.
         "name": "impossible query stops early",
